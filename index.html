@@ -55,7 +55,7 @@ button {
 
 .section-title {
   font-weight: bold;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .row {
@@ -67,22 +67,27 @@ button {
 .row input { flex: 1; }
 
 .item {
-  display: flex;
-  justify-content: space-between;
   background: #f9fafb;
   padding: 10px;
   border-radius: 8px;
   margin-top: 6px;
 }
 
+.item-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.formatted {
+  font-size: 14px;
+  color: #2563eb;
+  margin-top: 4px;
+}
+
 .total {
   font-weight: bold;
   margin-top: 10px;
-}
-
-.small {
-  font-size: 14px;
-  color: #555;
 }
 </style>
 </head>
@@ -105,62 +110,19 @@ button {
 <div id="lista"></div>
 
 <script>
-/* ===============================
-   CONFIGURACIÓN DE VERSIONES
-================================ */
-const DATA_VERSION = 1;
 const STORAGE_KEY = "control_apartamentos_data";
 const TIPO_CAMBIO = 520;
 
-/* ===============================
-   CARGA SEGURA DE DATOS
-================================ */
-function cargarDatos() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return {
-      version: DATA_VERSION,
-      moneda: "CRC",
-      apartamentos: []
-    };
-  }
+let data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+  version: 1,
+  moneda: "CRC",
+  apartamentos: []
+};
 
-  try {
-    const data = JSON.parse(raw);
-
-    // Migraciones futuras aquí
-    if (!data.version) data.version = 1;
-    if (!data.moneda) data.moneda = "CRC";
-    if (!Array.isArray(data.apartamentos)) data.apartamentos = [];
-
-    data.apartamentos.forEach(a => {
-      if (!a.ingresos) a.ingresos = [];
-      if (!a.gastos) a.gastos = [];
-    });
-
-    return data;
-  } catch {
-    alert("Error al cargar datos. No se borró información.");
-    return {
-      version: DATA_VERSION,
-      moneda: "CRC",
-      apartamentos: []
-    };
-  }
-}
-
-let data = cargarDatos();
-
-/* ===============================
-   GUARDADO SEGURO
-================================ */
 function guardar() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-/* ===============================
-   FORMATEO MONEDAS
-================================ */
 function formatoCRC(v) {
   return new Intl.NumberFormat("es-CR", {
     style: "currency",
@@ -181,9 +143,6 @@ function mostrar(v) {
   return data.moneda === "CRC" ? formatoCRC(v) : formatoUSD(v);
 }
 
-/* ===============================
-   FUNCIONES PRINCIPALES
-================================ */
 function cambiarMoneda() {
   data.moneda = data.moneda === "CRC" ? "USD" : "CRC";
   guardar();
@@ -203,31 +162,21 @@ function agregarApartamento() {
 }
 
 function agregarIngreso(i) {
-  const monto = Number(document.getElementById(`ingMonto-${i}`).value || 0);
-  const desc = document.getElementById(`ingDesc-${i}`).value;
-  if (!monto) return;
-
-  data.apartamentos[i].ingresos.push({ montoCRC: monto, desc });
+  const m = Number(document.getElementById(`ingMonto-${i}`).value || 0);
+  const d = document.getElementById(`ingDesc-${i}`).value;
+  if (!m) return;
+  data.apartamentos[i].ingresos.push({ montoCRC: m, desc: d });
   guardar();
   render();
 }
 
 function agregarGasto(i) {
-  const monto = Number(document.getElementById(`gasMonto-${i}`).value || 0);
-  const desc = document.getElementById(`gasDesc-${i}`).value;
-  if (!monto) return;
-
-  data.apartamentos[i].gastos.push({ montoCRC: monto, desc });
+  const m = Number(document.getElementById(`gasMonto-${i}`).value || 0);
+  const d = document.getElementById(`gasDesc-${i}`).value;
+  if (!m) return;
+  data.apartamentos[i].gastos.push({ montoCRC: m, desc: d });
   guardar();
   render();
-}
-
-function eliminarApartamento(i) {
-  if (confirm("¿Eliminar este apartamento completo?")) {
-    data.apartamentos.splice(i, 1);
-    guardar();
-    render();
-  }
 }
 
 function eliminarItem(tipo, i, j) {
@@ -243,14 +192,14 @@ function actualizarCampo(tipo, i, j, campo, v) {
   render();
 }
 
-function actualizarNombre(i, v) {
-  data.apartamentos[i].nombre = v;
-  guardar();
+function eliminarApartamento(i) {
+  if (confirm("¿Eliminar este apartamento completo?")) {
+    data.apartamentos.splice(i, 1);
+    guardar();
+    render();
+  }
 }
 
-/* ===============================
-   RENDER
-================================ */
 function render() {
   monedaLabel.innerText =
     data.moneda === "CRC" ? "Moneda: Colones ₡" : "Moneda: Dólares $";
@@ -266,47 +215,53 @@ function render() {
       <div class="card apartment">
         <span class="delete-apartment" onclick="eliminarApartamento(${i})">✖</span>
 
-        <input value="${a.nombre}" oninput="actualizarNombre(${i}, this.value)">
+        <input value="${a.nombre}" oninput="data.apartamentos[${i}].nombre=this.value;guardar()">
 
         <div class="section-title">Ingresos</div>
         <div class="row">
-          <input id="ingMonto-${i}" type="number" inputmode="numeric" placeholder="Monto">
-          <input id="ingDesc-${i}" placeholder="Descripción">
+          <input id="ingMonto-${i}" type="number" inputmode="numeric" placeholder="Monto ingreso">
+          <input id="ingDesc-${i}" placeholder="Descripción ingreso">
           <button onclick="agregarIngreso(${i})">+</button>
         </div>
 
         ${a.ingresos.map((x, j) => `
           <div class="item">
-            <div>
-              <input type="number" inputmode="numeric"
-                value="${x.montoCRC}"
-                oninput="actualizarCampo('ingresos',${i},${j},'montoCRC',this.value)">
-              <input value="${x.desc}"
-                oninput="actualizarCampo('ingresos',${i},${j},'desc',this.value)">
+            <div class="item-actions">
+              <div>
+                <input type="number" inputmode="numeric"
+                  value="${x.montoCRC}"
+                  oninput="actualizarCampo('ingresos',${i},${j},'montoCRC',this.value)">
+                <div class="formatted">${mostrar(x.montoCRC)}</div>
+                <input value="${x.desc}"
+                  oninput="actualizarCampo('ingresos',${i},${j},'desc',this.value)">
+              </div>
+              <span style="color:red;cursor:pointer"
+                onclick="eliminarItem('ingresos',${i},${j})">✖</span>
             </div>
-            <span style="color:red;cursor:pointer"
-              onclick="eliminarItem('ingresos',${i},${j})">✖</span>
           </div>
         `).join("")}
 
         <div class="section-title">Gastos</div>
         <div class="row">
-          <input id="gasMonto-${i}" type="number" inputmode="numeric" placeholder="Monto">
-          <input id="gasDesc-${i}" placeholder="Descripción">
+          <input id="gasMonto-${i}" type="number" inputmode="numeric" placeholder="Monto gasto">
+          <input id="gasDesc-${i}" placeholder="Descripción gasto">
           <button onclick="agregarGasto(${i})">+</button>
         </div>
 
         ${a.gastos.map((x, j) => `
           <div class="item">
-            <div>
-              <input type="number" inputmode="numeric"
-                value="${x.montoCRC}"
-                oninput="actualizarCampo('gastos',${i},${j},'montoCRC',this.value)">
-              <input value="${x.desc}"
-                oninput="actualizarCampo('gastos',${i},${j},'desc',this.value)">
+            <div class="item-actions">
+              <div>
+                <input type="number" inputmode="numeric"
+                  value="${x.montoCRC}"
+                  oninput="actualizarCampo('gastos',${i},${j},'montoCRC',this.value)">
+                <div class="formatted">${mostrar(x.montoCRC)}</div>
+                <input value="${x.desc}"
+                  oninput="actualizarCampo('gastos',${i},${j},'desc',this.value)">
+              </div>
+              <span style="color:red;cursor:pointer"
+                onclick="eliminarItem('gastos',${i},${j})">✖</span>
             </div>
-            <span style="color:red;cursor:pointer"
-              onclick="eliminarItem('gastos',${i},${j})">✖</span>
           </div>
         `).join("")}
 
