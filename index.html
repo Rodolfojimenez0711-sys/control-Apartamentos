@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control de Apartamentos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial; background:#f3f4f6; padding:20px }
+    .card { background:#fff; padding:20px; border-radius:10px; max-width:400px; margin:auto }
+    input, button { width:100%; padding:10px; margin:8px 0 }
+    button { background:#2563eb; color:#fff; border:none }
+  </style>
+</head>
+<body>
+
+<div class="card" id="login">
+  <h2>Acceso</h2>
+  <input id="user" placeholder="Usuario">
+  <input id="pass" type="password" placeholder="Contraseña">
+  <button onclick="login()">Ingresar</button>
+</div>
+
+<div class="card" id="app" style="display:none">
+  <h2>Apartamentos</h2>
+  <input id="apt" placeholder="Apartamento">
+  <input id="ing" type="number" placeholder="Ingreso">
+  <input id="gas" type="number" placeholder="Gasto">
+  <button onclick="add()">Agregar</button>
+  <table id="tabla"></table>
+</div>
+
+<script>
+  const usuarios = [
+    {u:"admin", p:"1234"},
+    {u:"ivannia", p:"ivannia2026"}
+  ];
+
+  function login(){
+    if(usuarios.find(x=>x.u===user.value && x.p===pass.value)){
+      login.style.display="none";
+      app.style.display="block";
+    } else alert("Credenciales incorrectas");
+  }
+
+  function add(){
+    tabla.innerHTML += `<tr><td>${apt.value}</td><td>${ing.value}</td><td>${gas.value}</td></tr>`;
+    apt.value = ing.value = gas.value = "";
+  }
+</script>
+
+</body>
+</html>
