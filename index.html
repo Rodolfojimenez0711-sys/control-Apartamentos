@@ -17,7 +17,8 @@
   <h2>Acceso</h2>
   <input id="user" placeholder="Usuario">
   <input id="pass" type="password" placeholder="Contraseña">
-  <button onclick="login()">Ingresar</button>
+<button onclick="doLogin()">Ingresar</button>
+  
 </div>
 
 <div class="card" id="app" style="display:none">
@@ -47,6 +48,40 @@
     apt.value = ing.value = gas.value = "";
   }
 </script>
+<script>
+  const usuarios = [
+    {u:"admin", p:"1234"},
+    {u:"ivannia", p:"ivannia2026"}
+  ];
 
+  function doLogin(){
+    const u = document.getElementById("user").value;
+    const p = document.getElementById("pass").value;
+
+    const valido = usuarios.find(x => x.u === u && x.p === p);
+
+    if(valido){
+      document.getElementById("login").style.display = "none";
+      document.getElementById("app").style.display = "block";
+    } else {
+      alert("Credenciales incorrectas");
+    }
+  }
+
+  function add(){
+    const apt = document.getElementById("apt");
+    const ing = document.getElementById("ing");
+    const gas = document.getElementById("gas");
+    const tabla = document.getElementById("tabla");
+
+    tabla.innerHTML += `<tr>
+      <td>${apt.value}</td>
+      <td>${ing.value}</td>
+      <td>${gas.value}</td>
+    </tr>`;
+
+    apt.value = ing.value = gas.value = "";
+  }
+</script>
 </body>
 </html>
