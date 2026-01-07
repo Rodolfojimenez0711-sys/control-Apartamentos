@@ -1,111 +1,198 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Control de Apartamentos</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>Control de Apartamentos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f3f4f6;
-      padding: 20px;
-    }
-    .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 400px;
-      margin: auto;
-      box-shadow: 0 4px 10px rgba(0,0,0,.1);
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0;
-    }
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    table {
-      width: 100%;
-      margin-top: 15px;
-      border-collapse: collapse;
-    }
-    td {
-      border-bottom: 1px solid #ddd;
-      padding: 6px;
-    }
-  </style>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  padding: 20px;
+}
+
+h1 { text-align:center; }
+
+.card {
+  background: #fff;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+}
+
+input, button {
+  padding: 8px;
+  margin: 4px 0;
+}
+
+button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.apartment {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.row input {
+  flex: 1;
+}
+
+.gasto {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  background: #f9fafb;
+  padding: 4px 6px;
+  border-radius: 5px;
+  margin-top: 4px;
+}
+
+.delete {
+  color: red;
+  cursor: pointer;
+}
+
+.total {
+  font-weight: bold;
+  margin-top: 8px;
+}
+</style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
-<div class="card" id="login">
-  <h2>Acceso</h2>
-  <input id="user" placeholder="Usuario">
-  <input id="pass" type="password" placeholder="Contraseña">
-  <button onclick="doLogin()">Ingresar</button>
+<h1>Control de Apartamentos</h1>
+
+<div class="card">
+  <h3>Nuevo apartamento</h3>
+  <input id="nuevoNombre" placeholder="Nombre del apartamento">
+  <input id="nuevoIngreso" type="number" placeholder="Ingreso mensual">
+  <button onclick="agregarApartamento()">Agregar apartamento</button>
 </div>
 
-<!-- APP -->
-<div class="card" id="app" style="display:none">
-  <h2>Apartamentos</h2>
-  <input id="apt" placeholder="Apartamento">
-  <input id="ing" type="number" placeholder="Ingreso">
-  <input id="gas" type="number" placeholder="Gasto">
-  <button onclick="add()">Agregar</button>
-  <table id="tabla"></table>
+<div class="card">
+  <button onclick="cambiarMoneda()">Cambiar moneda</button>
+  <span id="monedaLabel"></span>
 </div>
+
+<div id="lista"></div>
 
 <script>
-  // Usuarios del sistema
-  const usuarios = [
-    { usuario: "admin", password: "1234" },
-    { usuario: "ivannia", password: "ivannia2026" }
-  ];
+let moneda = localStorage.getItem("moneda") || "CRC";
+let apartamentos = JSON.parse(localStorage.getItem("apartamentos")) || [];
 
-  function doLogin() {
-    const u = document.getElementById("user").value;
-    const p = document.getElementById("pass").value;
+function guardar() {
+  localStorage.setItem("apartamentos", JSON.stringify(apartamentos));
+  localStorage.setItem("moneda", moneda);
+}
 
-    const valido = usuarios.find(
-      x => x.usuario === u && x.password === p
-    );
+function formato(valor) {
+  return new Intl.NumberFormat(
+    moneda === "CRC" ? "es-CR" : "en-US",
+    { style: "currency", currency: moneda }
+  ).format(valor);
+}
 
-    if (valido) {
-      document.getElementById("login").style.display = "none";
-      document.getElementById("app").style.display = "block";
-    } else {
-      alert("Credenciales incorrectas");
-    }
-  }
+function cambiarMoneda() {
+  moneda = moneda === "CRC" ? "USD" : "CRC";
+  guardar();
+  render();
+}
 
-  function add() {
-    const apt = document.getElementById("apt");
-    const ing = document.getElementById("ing");
-    const gas = document.getElementById("gas");
-    const tabla = document.getElementById("tabla");
+function agregarApartamento() {
+  const nombre = document.getElementById("nuevoNombre").value;
+  const ingreso = Number(document.getElementById("nuevoIngreso").value);
 
-    if (!apt.value) return;
+  if (!nombre) return;
 
-    tabla.innerHTML += `
-      <tr>
-        <td>${apt.value}</td>
-        <td>₡${ing.value || 0}</td>
-        <td>₡${gas.value || 0}</td>
-      </tr>
+  apartamentos.push({
+    nombre,
+    ingreso,
+    gastos: []
+  });
+
+  document.getElementById("nuevoNombre").value = "";
+  document.getElementById("nuevoIngreso").value = "";
+  guardar();
+  render();
+}
+
+function agregarGasto(i) {
+  const valor = Number(document.getElementById(`gasto-${i}`).value);
+  if (!valor) return;
+  apartamentos[i].gastos.push(valor);
+  guardar();
+  render();
+}
+
+function eliminarGasto(i, g) {
+  apartamentos[i].gastos.splice(g, 1);
+  guardar();
+  render();
+}
+
+function actualizarNombre(i, v) {
+  apartamentos[i].nombre = v;
+  guardar();
+}
+
+function actualizarIngreso(i, v) {
+  apartamentos[i].ingreso = Number(v);
+  guardar();
+  render();
+}
+
+function render() {
+  document.getElementById("monedaLabel").innerText =
+    moneda === "CRC" ? "Moneda: Colones (₡)" : "Moneda: Dólares ($)";
+
+  const cont = document.getElementById("lista");
+  cont.innerHTML = "";
+
+  apartamentos.forEach((a, i) => {
+    const totalGastos = a.gastos.reduce((x, y) => x + y, 0);
+    const ganancia = a.ingreso - totalGastos;
+
+    cont.innerHTML += `
+      <div class="card apartment">
+        <input value="${a.nombre}" oninput="actualizarNombre(${i}, this.value)">
+        <input type="number" value="${a.ingreso}" oninput="actualizarIngreso(${i}, this.value)">
+
+        <div class="row">
+          <input id="gasto-${i}" type="number" placeholder="Nuevo gasto">
+          <button onclick="agregarGasto(${i})">Agregar gasto</button>
+        </div>
+
+        ${a.gastos.map((g, gi) => `
+          <div class="gasto">
+            ${formato(g)}
+            <span class="delete" onclick="eliminarGasto(${i}, ${gi})">✖</span>
+          </div>
+        `).join("")}
+
+        <div class="total">Total gastos: ${formato(totalGastos)}</div>
+        <div class="total">Ganancia: ${formato(ganancia)}</div>
+      </div>
     `;
+  });
+}
 
-    apt.value = "";
-    ing.value = "";
-    gas.value = "";
-  }
+render();
 </script>
 
 </body>
