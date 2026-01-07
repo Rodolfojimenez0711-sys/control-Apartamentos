@@ -44,7 +44,7 @@ button {
 
 .row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -52,12 +52,12 @@ button {
   flex: 1;
 }
 
-.gasto {
+.item {
   display: flex;
   justify-content: space-between;
   font-size: 14px;
   background: #f9fafb;
-  padding: 4px 6px;
+  padding: 6px;
   border-radius: 5px;
   margin-top: 4px;
 }
@@ -71,6 +71,10 @@ button {
   font-weight: bold;
   margin-top: 8px;
 }
+.small {
+  font-size: 12px;
+  color: #555;
+}
 </style>
 </head>
 
@@ -81,7 +85,8 @@ button {
 <div class="card">
   <h3>Nuevo apartamento</h3>
   <input id="nuevoNombre" placeholder="Nombre del apartamento">
-  <input id="nuevoIngreso" type="number" placeholder="Ingreso mensual">
+  <input id="nuevoIngresoMonto" type="number" placeholder="Ingreso mensual">
+  <input id="nuevoIngresoDesc" placeholder="Descripción del ingreso">
   <button onclick="agregarApartamento()">Agregar apartamento</button>
 </div>
 
@@ -115,27 +120,31 @@ function cambiarMoneda() {
 }
 
 function agregarApartamento() {
-  const nombre = document.getElementById("nuevoNombre").value;
-  const ingreso = Number(document.getElementById("nuevoIngreso").value);
+  const nombre = nuevoNombre.value;
+  const monto = Number(nuevoIngresoMonto.value);
+  const desc = nuevoIngresoDesc.value;
 
   if (!nombre) return;
 
   apartamentos.push({
     nombre,
-    ingreso,
+    ingreso: { monto, desc },
     gastos: []
   });
 
-  document.getElementById("nuevoNombre").value = "";
-  document.getElementById("nuevoIngreso").value = "";
+  nuevoNombre.value = "";
+  nuevoIngresoMonto.value = "";
+  nuevoIngresoDesc.value = "";
   guardar();
   render();
 }
 
 function agregarGasto(i) {
-  const valor = Number(document.getElementById(`gasto-${i}`).value);
-  if (!valor) return;
-  apartamentos[i].gastos.push(valor);
+  const monto = Number(document.getElementById(`gastoMonto-${i}`).value);
+  const desc = document.getElementById(`gastoDesc-${i}`).value;
+  if (!monto) return;
+
+  apartamentos[i].gastos.push({ monto, desc });
   guardar();
   render();
 }
@@ -151,36 +160,46 @@ function actualizarNombre(i, v) {
   guardar();
 }
 
-function actualizarIngreso(i, v) {
-  apartamentos[i].ingreso = Number(v);
+function actualizarIngreso(i, campo, v) {
+  if (campo === "monto") apartamentos[i].ingreso.monto = Number(v);
+  if (campo === "desc") apartamentos[i].ingreso.desc = v;
   guardar();
   render();
 }
 
 function render() {
-  document.getElementById("monedaLabel").innerText =
+  monedaLabel.innerText =
     moneda === "CRC" ? "Moneda: Colones (₡)" : "Moneda: Dólares ($)";
 
-  const cont = document.getElementById("lista");
-  cont.innerHTML = "";
+  lista.innerHTML = "";
 
   apartamentos.forEach((a, i) => {
-    const totalGastos = a.gastos.reduce((x, y) => x + y, 0);
-    const ganancia = a.ingreso - totalGastos;
+    const totalGastos = a.gastos.reduce((x, g) => x + g.monto, 0);
+    const ganancia = a.ingreso.monto - totalGastos;
 
-    cont.innerHTML += `
+    lista.innerHTML += `
       <div class="card apartment">
         <input value="${a.nombre}" oninput="actualizarNombre(${i}, this.value)">
-        <input type="number" value="${a.ingreso}" oninput="actualizarIngreso(${i}, this.value)">
+
+        <input type="number" value="${a.ingreso.monto}"
+          oninput="actualizarIngreso(${i}, 'monto', this.value)">
+        <input value="${a.ingreso.desc}"
+          oninput="actualizarIngreso(${i}, 'desc', this.value)"
+          placeholder="Descripción ingreso">
+        <div class="small">Ingreso: ${formato(a.ingreso.monto)}</div>
 
         <div class="row">
-          <input id="gasto-${i}" type="number" placeholder="Nuevo gasto">
+          <input id="gastoMonto-${i}" type="number" placeholder="Monto gasto">
+          <input id="gastoDesc-${i}" placeholder="Descripción gasto">
           <button onclick="agregarGasto(${i})">Agregar gasto</button>
         </div>
 
         ${a.gastos.map((g, gi) => `
-          <div class="gasto">
-            ${formato(g)}
+          <div class="item">
+            <div>
+              ${formato(g.monto)}
+              <div class="small">${g.desc || ""}</div>
+            </div>
             <span class="delete" onclick="eliminarGasto(${i}, ${gi})">✖</span>
           </div>
         `).join("")}
