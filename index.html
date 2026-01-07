@@ -12,7 +12,8 @@ body {
   padding: 20px;
   font-size: 18px;
 }
-h1 { text-align:center; }
+
+h1 { text-align: center; }
 
 .card {
   background: #fff;
@@ -30,7 +31,7 @@ input, button {
 
 button {
   background: #2563eb;
-  color: #fff;
+  color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -87,7 +88,19 @@ button {
 
 .total {
   font-weight: bold;
-  margin-top: 10px;
+  margin-top: 8px;
+}
+
+.ganancia-positiva {
+  color: #16a34a;
+}
+
+.ganancia-negativa {
+  color: #dc2626;
+}
+
+.ganancia-cero {
+  color: #374151;
 }
 </style>
 </head>
@@ -97,7 +110,7 @@ button {
 <h1>Control de Apartamentos</h1>
 
 <div class="card">
-  <h3>Agregar apartamento</h3>
+  <h3>Agregar apartamento (máx. 30)</h3>
   <input id="nuevoNombre" placeholder="Nombre del apartamento">
   <button onclick="agregarApartamento()">Agregar</button>
 </div>
@@ -112,6 +125,7 @@ button {
 <script>
 const STORAGE_KEY = "control_apartamentos_data";
 const TIPO_CAMBIO = 520;
+const MAX_APARTAMENTOS = 30;
 
 let data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
   version: 1,
@@ -151,11 +165,18 @@ function cambiarMoneda() {
 
 function agregarApartamento() {
   if (!nuevoNombre.value) return;
+
+  if (data.apartamentos.length >= MAX_APARTAMENTOS) {
+    alert("Solo se pueden agregar hasta 30 apartamentos.");
+    return;
+  }
+
   data.apartamentos.push({
     nombre: nuevoNombre.value,
     ingresos: [],
     gastos: []
   });
+
   nuevoNombre.value = "";
   guardar();
   render();
@@ -165,6 +186,7 @@ function agregarIngreso(i) {
   const m = Number(document.getElementById(`ingMonto-${i}`).value || 0);
   const d = document.getElementById(`ingDesc-${i}`).value;
   if (!m) return;
+
   data.apartamentos[i].ingresos.push({ montoCRC: m, desc: d });
   guardar();
   render();
@@ -174,6 +196,7 @@ function agregarGasto(i) {
   const m = Number(document.getElementById(`gasMonto-${i}`).value || 0);
   const d = document.getElementById(`gasDesc-${i}`).value;
   if (!m) return;
+
   data.apartamentos[i].gastos.push({ montoCRC: m, desc: d });
   guardar();
   render();
@@ -200,6 +223,12 @@ function eliminarApartamento(i) {
   }
 }
 
+function claseGanancia(v) {
+  if (v > 0) return "ganancia-positiva";
+  if (v < 0) return "ganancia-negativa";
+  return "ganancia-cero";
+}
+
 function render() {
   monedaLabel.innerText =
     data.moneda === "CRC" ? "Moneda: Colones ₡" : "Moneda: Dólares $";
@@ -215,7 +244,8 @@ function render() {
       <div class="card apartment">
         <span class="delete-apartment" onclick="eliminarApartamento(${i})">✖</span>
 
-        <input value="${a.nombre}" oninput="data.apartamentos[${i}].nombre=this.value;guardar()">
+        <input value="${a.nombre}"
+          oninput="data.apartamentos[${i}].nombre=this.value;guardar()">
 
         <div class="section-title">Ingresos</div>
         <div class="row">
@@ -226,18 +256,14 @@ function render() {
 
         ${a.ingresos.map((x, j) => `
           <div class="item">
-            <div class="item-actions">
-              <div>
-                <input type="number" inputmode="numeric"
-                  value="${x.montoCRC}"
-                  oninput="actualizarCampo('ingresos',${i},${j},'montoCRC',this.value)">
-                <div class="formatted">${mostrar(x.montoCRC)}</div>
-                <input value="${x.desc}"
-                  oninput="actualizarCampo('ingresos',${i},${j},'desc',this.value)">
-              </div>
-              <span style="color:red;cursor:pointer"
-                onclick="eliminarItem('ingresos',${i},${j})">✖</span>
-            </div>
+            <input type="number" inputmode="numeric"
+              value="${x.montoCRC}"
+              oninput="actualizarCampo('ingresos',${i},${j},'montoCRC',this.value)">
+            <div class="formatted">${mostrar(x.montoCRC)}</div>
+            <input value="${x.desc}"
+              oninput="actualizarCampo('ingresos',${i},${j},'desc',this.value)">
+            <span style="color:red;cursor:pointer"
+              onclick="eliminarItem('ingresos',${i},${j})">✖</span>
           </div>
         `).join("")}
 
@@ -250,24 +276,22 @@ function render() {
 
         ${a.gastos.map((x, j) => `
           <div class="item">
-            <div class="item-actions">
-              <div>
-                <input type="number" inputmode="numeric"
-                  value="${x.montoCRC}"
-                  oninput="actualizarCampo('gastos',${i},${j},'montoCRC',this.value)">
-                <div class="formatted">${mostrar(x.montoCRC)}</div>
-                <input value="${x.desc}"
-                  oninput="actualizarCampo('gastos',${i},${j},'desc',this.value)">
-              </div>
-              <span style="color:red;cursor:pointer"
-                onclick="eliminarItem('gastos',${i},${j})">✖</span>
-            </div>
+            <input type="number" inputmode="numeric"
+              value="${x.montoCRC}"
+              oninput="actualizarCampo('gastos',${i},${j},'montoCRC',this.value)">
+            <div class="formatted">${mostrar(x.montoCRC)}</div>
+            <input value="${x.desc}"
+              oninput="actualizarCampo('gastos',${i},${j},'desc',this.value)">
+            <span style="color:red;cursor:pointer"
+              onclick="eliminarItem('gastos',${i},${j})">✖</span>
           </div>
         `).join("")}
 
         <div class="total">Total ingresos: ${mostrar(totalIng)}</div>
         <div class="total">Total gastos: ${mostrar(totalGas)}</div>
-        <div class="total">Ganancia: ${mostrar(ganancia)}</div>
+        <div class="total ${claseGanancia(ganancia)}">
+          Ganancia: ${mostrar(ganancia)}
+        </div>
       </div>
     `;
   });
