@@ -12,7 +12,6 @@ body {
   padding: 20px;
   font-size: 18px;
 }
-
 h1 { text-align:center; }
 
 .card {
@@ -60,9 +59,7 @@ button {
   flex-wrap: wrap;
 }
 
-.row input {
-  flex: 1;
-}
+.row input { flex: 1; }
 
 .item {
   display: flex;
@@ -92,7 +89,7 @@ button {
 <div class="card">
   <h3>Agregar apartamento</h3>
   <input id="nuevoNombre" placeholder="Nombre del apartamento">
-  <input id="nuevoIngresoMonto" type="number" inputmode="numeric" placeholder="Ingreso mensual">
+  <input id="nuevoIngresoMonto" type="number" inputmode="numeric" placeholder="Ingreso mensual (₡)">
   <input id="nuevoIngresoDesc" placeholder="Descripción del ingreso">
   <button onclick="agregarApartamento()">Agregar</button>
 </div>
@@ -106,6 +103,7 @@ button {
 
 <script>
 let moneda = localStorage.getItem("moneda") || "CRC";
+const tipoCambio = 520; // ₡520 = $1
 let apartamentos = JSON.parse(localStorage.getItem("apartamentos")) || [];
 
 function guardar() {
@@ -113,11 +111,26 @@ function guardar() {
   localStorage.setItem("moneda", moneda);
 }
 
-function formato(valor) {
-  return new Intl.NumberFormat(
-    moneda === "CRC" ? "es-CR" : "en-US",
-    { style: "currency", currency: moneda }
-  ).format(valor || 0);
+function formatoCRC(valor) {
+  return new Intl.NumberFormat("es-CR", {
+    style: "currency",
+    currency: "CRC",
+    minimumFractionDigits: 0
+  }).format(valor);
+}
+
+function formatoUSD(valorCRC) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2
+  }).format(valorCRC / tipoCambio);
+}
+
+function mostrar(valorCRC) {
+  return moneda === "CRC"
+    ? formatoCRC(valorCRC)
+    : formatoUSD(valorCRC);
 }
 
 function cambiarMoneda() {
@@ -128,14 +141,14 @@ function cambiarMoneda() {
 
 function agregarApartamento() {
   const nombre = nuevoNombre.value;
-  const monto = Number(nuevoIngresoMonto.value || 0);
+  const montoCRC = Number(nuevoIngresoMonto.value || 0);
   const desc = nuevoIngresoDesc.value;
 
   if (!nombre) return;
 
   apartamentos.push({
     nombre,
-    ingreso: { monto, desc },
+    ingreso: { montoCRC, desc },
     gastos: []
   });
 
@@ -151,7 +164,7 @@ function agregarGasto(i) {
   const desc = document.getElementById(`gastoDesc-${i}`).value;
   if (!monto) return;
 
-  apartamentos[i].gastos.push({ monto, desc });
+  apartamentos[i].gastos.push({ montoCRC: monto, desc });
   guardar();
   render();
 }
@@ -176,20 +189,23 @@ function actualizarNombre(i, v) {
 }
 
 function actualizarIngreso(i, campo, v) {
-  apartamentos[i].ingreso[campo] = campo === "monto" ? Number(v || 0) : v;
+  if (campo === "monto") apartamentos[i].ingreso.montoCRC = Number(v || 0);
+  if (campo === "desc") apartamentos[i].ingreso.desc = v;
   guardar();
   render();
 }
 
 function render() {
   monedaLabel.innerText =
-    moneda === "CRC" ? "Moneda: Colones ₡" : "Moneda: Dólares $";
+    moneda === "CRC"
+      ? "Moneda actual: Colones (₡)"
+      : "Moneda actual: Dólares ($)";
 
   lista.innerHTML = "";
 
   apartamentos.forEach((a, i) => {
-    const totalGastos = a.gastos.reduce((s, g) => s + g.monto, 0);
-    const ganancia = a.ingreso.monto - totalGastos;
+    const totalGastosCRC = a.gastos.reduce((s, g) => s + g.montoCRC, 0);
+    const gananciaCRC = a.ingreso.montoCRC - totalGastosCRC;
 
     lista.innerHTML += `
       <div class="card apartment">
@@ -197,16 +213,17 @@ function render() {
 
         <input value="${a.nombre}" oninput="actualizarNombre(${i}, this.value)">
 
-        <input type="number" inputmode="numeric" value="${a.ingreso.monto}"
+        <input type="number" inputmode="numeric"
+          value="${a.ingreso.montoCRC}"
           oninput="actualizarIngreso(${i}, 'monto', this.value)">
         <input value="${a.ingreso.desc}"
           oninput="actualizarIngreso(${i}, 'desc', this.value)"
           placeholder="Descripción ingreso">
 
-        <div class="small">Ingreso: ${formato(a.ingreso.monto)}</div>
+        <div class="small">Ingreso: ${mostrar(a.ingreso.montoCRC)}</div>
 
         <div class="row">
-          <input id="gastoMonto-${i}" type="number" inputmode="numeric" placeholder="Monto gasto">
+          <input id="gastoMonto-${i}" type="number" inputmode="numeric" placeholder="Monto gasto (₡)">
           <input id="gastoDesc-${i}" placeholder="Descripción gasto">
           <button onclick="agregarGasto(${i})">Agregar gasto</button>
         </div>
@@ -214,7 +231,7 @@ function render() {
         ${a.gastos.map((g, gi) => `
           <div class="item">
             <div>
-              ${formato(g.monto)}
+              ${mostrar(g.montoCRC)}
               <div class="small">${g.desc || ""}</div>
             </div>
             <span style="color:red;cursor:pointer"
@@ -222,8 +239,8 @@ function render() {
           </div>
         `).join("")}
 
-        <div class="total">Total gastos: ${formato(totalGastos)}</div>
-        <div class="total">Ganancia: ${formato(ganancia)}</div>
+        <div class="total">Total gastos: ${mostrar(totalGastosCRC)}</div>
+        <div class="total">Ganancia: ${mostrar(gananciaCRC)}</div>
       </div>
     `;
   });
