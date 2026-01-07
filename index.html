@@ -53,6 +53,11 @@ button {
   cursor: pointer;
 }
 
+.section-title {
+  font-weight: bold;
+  margin-top: 10px;
+}
+
 .row {
   display: flex;
   gap: 8px;
@@ -70,14 +75,14 @@ button {
   margin-top: 6px;
 }
 
-.small {
-  font-size: 14px;
-  color: #555;
-}
-
 .total {
   font-weight: bold;
   margin-top: 10px;
+}
+
+.small {
+  font-size: 14px;
+  color: #555;
 }
 </style>
 </head>
@@ -89,8 +94,6 @@ button {
 <div class="card">
   <h3>Agregar apartamento</h3>
   <input id="nuevoNombre" placeholder="Nombre del apartamento">
-  <input id="nuevoIngresoMonto" type="number" inputmode="numeric" placeholder="Ingreso mensual (₡)">
-  <input id="nuevoIngresoDesc" placeholder="Descripción del ingreso">
   <button onclick="agregarApartamento()">Agregar</button>
 </div>
 
@@ -102,110 +105,162 @@ button {
 <div id="lista"></div>
 
 <script>
-let moneda = localStorage.getItem("moneda") || "CRC";
-const tipoCambio = 520; // ₡520 = $1
-let apartamentos = JSON.parse(localStorage.getItem("apartamentos")) || [];
+/* ===============================
+   CONFIGURACIÓN DE VERSIONES
+================================ */
+const DATA_VERSION = 1;
+const STORAGE_KEY = "control_apartamentos_data";
+const TIPO_CAMBIO = 520;
 
-function guardar() {
-  localStorage.setItem("apartamentos", JSON.stringify(apartamentos));
-  localStorage.setItem("moneda", moneda);
+/* ===============================
+   CARGA SEGURA DE DATOS
+================================ */
+function cargarDatos() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    return {
+      version: DATA_VERSION,
+      moneda: "CRC",
+      apartamentos: []
+    };
+  }
+
+  try {
+    const data = JSON.parse(raw);
+
+    // Migraciones futuras aquí
+    if (!data.version) data.version = 1;
+    if (!data.moneda) data.moneda = "CRC";
+    if (!Array.isArray(data.apartamentos)) data.apartamentos = [];
+
+    data.apartamentos.forEach(a => {
+      if (!a.ingresos) a.ingresos = [];
+      if (!a.gastos) a.gastos = [];
+    });
+
+    return data;
+  } catch {
+    alert("Error al cargar datos. No se borró información.");
+    return {
+      version: DATA_VERSION,
+      moneda: "CRC",
+      apartamentos: []
+    };
+  }
 }
 
-function formatoCRC(valor) {
+let data = cargarDatos();
+
+/* ===============================
+   GUARDADO SEGURO
+================================ */
+function guardar() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+/* ===============================
+   FORMATEO MONEDAS
+================================ */
+function formatoCRC(v) {
   return new Intl.NumberFormat("es-CR", {
     style: "currency",
     currency: "CRC",
     minimumFractionDigits: 0
-  }).format(valor);
+  }).format(v);
 }
 
-function formatoUSD(valorCRC) {
+function formatoUSD(v) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2
-  }).format(valorCRC / tipoCambio);
+  }).format(v / TIPO_CAMBIO);
 }
 
-function mostrar(valorCRC) {
-  return moneda === "CRC"
-    ? formatoCRC(valorCRC)
-    : formatoUSD(valorCRC);
+function mostrar(v) {
+  return data.moneda === "CRC" ? formatoCRC(v) : formatoUSD(v);
 }
 
+/* ===============================
+   FUNCIONES PRINCIPALES
+================================ */
 function cambiarMoneda() {
-  moneda = moneda === "CRC" ? "USD" : "CRC";
+  data.moneda = data.moneda === "CRC" ? "USD" : "CRC";
   guardar();
   render();
 }
 
 function agregarApartamento() {
-  const nombre = nuevoNombre.value;
-  const montoCRC = Number(nuevoIngresoMonto.value || 0);
-  const desc = nuevoIngresoDesc.value;
-
-  if (!nombre) return;
-
-  apartamentos.push({
-    nombre,
-    ingreso: { montoCRC, desc },
+  if (!nuevoNombre.value) return;
+  data.apartamentos.push({
+    nombre: nuevoNombre.value,
+    ingresos: [],
     gastos: []
   });
-
   nuevoNombre.value = "";
-  nuevoIngresoMonto.value = "";
-  nuevoIngresoDesc.value = "";
+  guardar();
+  render();
+}
+
+function agregarIngreso(i) {
+  const monto = Number(document.getElementById(`ingMonto-${i}`).value || 0);
+  const desc = document.getElementById(`ingDesc-${i}`).value;
+  if (!monto) return;
+
+  data.apartamentos[i].ingresos.push({ montoCRC: monto, desc });
   guardar();
   render();
 }
 
 function agregarGasto(i) {
-  const monto = Number(document.getElementById(`gastoMonto-${i}`).value || 0);
-  const desc = document.getElementById(`gastoDesc-${i}`).value;
+  const monto = Number(document.getElementById(`gasMonto-${i}`).value || 0);
+  const desc = document.getElementById(`gasDesc-${i}`).value;
   if (!monto) return;
 
-  apartamentos[i].gastos.push({ montoCRC: monto, desc });
-  guardar();
-  render();
-}
-
-function eliminarGasto(i, g) {
-  apartamentos[i].gastos.splice(g, 1);
+  data.apartamentos[i].gastos.push({ montoCRC: monto, desc });
   guardar();
   render();
 }
 
 function eliminarApartamento(i) {
-  if (confirm("¿Eliminar este apartamento?")) {
-    apartamentos.splice(i, 1);
+  if (confirm("¿Eliminar este apartamento completo?")) {
+    data.apartamentos.splice(i, 1);
     guardar();
     render();
   }
 }
 
-function actualizarNombre(i, v) {
-  apartamentos[i].nombre = v;
-  guardar();
-}
-
-function actualizarIngreso(i, campo, v) {
-  if (campo === "monto") apartamentos[i].ingreso.montoCRC = Number(v || 0);
-  if (campo === "desc") apartamentos[i].ingreso.desc = v;
+function eliminarItem(tipo, i, j) {
+  data.apartamentos[i][tipo].splice(j, 1);
   guardar();
   render();
 }
 
+function actualizarCampo(tipo, i, j, campo, v) {
+  if (campo === "montoCRC") v = Number(v || 0);
+  data.apartamentos[i][tipo][j][campo] = v;
+  guardar();
+  render();
+}
+
+function actualizarNombre(i, v) {
+  data.apartamentos[i].nombre = v;
+  guardar();
+}
+
+/* ===============================
+   RENDER
+================================ */
 function render() {
   monedaLabel.innerText =
-    moneda === "CRC"
-      ? "Moneda actual: Colones (₡)"
-      : "Moneda actual: Dólares ($)";
+    data.moneda === "CRC" ? "Moneda: Colones ₡" : "Moneda: Dólares $";
 
   lista.innerHTML = "";
 
-  apartamentos.forEach((a, i) => {
-    const totalGastosCRC = a.gastos.reduce((s, g) => s + g.montoCRC, 0);
-    const gananciaCRC = a.ingreso.montoCRC - totalGastosCRC;
+  data.apartamentos.forEach((a, i) => {
+    const totalIng = a.ingresos.reduce((s, x) => s + x.montoCRC, 0);
+    const totalGas = a.gastos.reduce((s, x) => s + x.montoCRC, 0);
+    const ganancia = totalIng - totalGas;
 
     lista.innerHTML += `
       <div class="card apartment">
@@ -213,34 +268,51 @@ function render() {
 
         <input value="${a.nombre}" oninput="actualizarNombre(${i}, this.value)">
 
-        <input type="number" inputmode="numeric"
-          value="${a.ingreso.montoCRC}"
-          oninput="actualizarIngreso(${i}, 'monto', this.value)">
-        <input value="${a.ingreso.desc}"
-          oninput="actualizarIngreso(${i}, 'desc', this.value)"
-          placeholder="Descripción ingreso">
-
-        <div class="small">Ingreso: ${mostrar(a.ingreso.montoCRC)}</div>
-
+        <div class="section-title">Ingresos</div>
         <div class="row">
-          <input id="gastoMonto-${i}" type="number" inputmode="numeric" placeholder="Monto gasto (₡)">
-          <input id="gastoDesc-${i}" placeholder="Descripción gasto">
-          <button onclick="agregarGasto(${i})">Agregar gasto</button>
+          <input id="ingMonto-${i}" type="number" inputmode="numeric" placeholder="Monto">
+          <input id="ingDesc-${i}" placeholder="Descripción">
+          <button onclick="agregarIngreso(${i})">+</button>
         </div>
 
-        ${a.gastos.map((g, gi) => `
+        ${a.ingresos.map((x, j) => `
           <div class="item">
             <div>
-              ${mostrar(g.montoCRC)}
-              <div class="small">${g.desc || ""}</div>
+              <input type="number" inputmode="numeric"
+                value="${x.montoCRC}"
+                oninput="actualizarCampo('ingresos',${i},${j},'montoCRC',this.value)">
+              <input value="${x.desc}"
+                oninput="actualizarCampo('ingresos',${i},${j},'desc',this.value)">
             </div>
             <span style="color:red;cursor:pointer"
-              onclick="eliminarGasto(${i}, ${gi})">✖</span>
+              onclick="eliminarItem('ingresos',${i},${j})">✖</span>
           </div>
         `).join("")}
 
-        <div class="total">Total gastos: ${mostrar(totalGastosCRC)}</div>
-        <div class="total">Ganancia: ${mostrar(gananciaCRC)}</div>
+        <div class="section-title">Gastos</div>
+        <div class="row">
+          <input id="gasMonto-${i}" type="number" inputmode="numeric" placeholder="Monto">
+          <input id="gasDesc-${i}" placeholder="Descripción">
+          <button onclick="agregarGasto(${i})">+</button>
+        </div>
+
+        ${a.gastos.map((x, j) => `
+          <div class="item">
+            <div>
+              <input type="number" inputmode="numeric"
+                value="${x.montoCRC}"
+                oninput="actualizarCampo('gastos',${i},${j},'montoCRC',this.value)">
+              <input value="${x.desc}"
+                oninput="actualizarCampo('gastos',${i},${j},'desc',this.value)">
+            </div>
+            <span style="color:red;cursor:pointer"
+              onclick="eliminarItem('gastos',${i},${j})">✖</span>
+          </div>
+        `).join("")}
+
+        <div class="total">Total ingresos: ${mostrar(totalIng)}</div>
+        <div class="total">Total gastos: ${mostrar(totalGas)}</div>
+        <div class="total">Ganancia: ${mostrar(ganancia)}</div>
       </div>
     `;
   });
